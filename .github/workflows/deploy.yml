@@ -1,3 +1,4 @@
+
 name: Deploy to AWS
 
 on:
@@ -33,9 +34,11 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Build SAM Application
+        working-directory: login-demo-aws
         run: sam build
 
       - name: Deploy SAM Infrastructure & Backend
+        working-directory: login-demo-aws
         run: |
           sam deploy \
             --no-confirm-changeset \
@@ -46,8 +49,10 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
       - name: Deploy Frontend to S3 & Invalidate CloudFront
+        working-directory: login-demo-aws
         run: |
           echo "Fetching CloudFormation stack outputs..."
+
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --region ${{ env.AWS_REGION }} \
@@ -77,20 +82,16 @@ jobs:
           echo "CloudFront Distribution: $DISTRIBUTION_ID"
           echo "Website URL: $WEBSITE_URL"
 
-          # Inject active API endpoint into index.html
           sed -i "s|__API_URL__|$API_URL|g" frontend/index.html
 
-          # Upload directly to S3
           aws s3 cp frontend/index.html "s3://${BUCKET_NAME}/index.html"
 
-          # Invalidate CloudFront cache
           aws cloudfront create-invalidation \
             --distribution-id "$DISTRIBUTION_ID" \
             --paths "/*"
 
-          # Output summary to GitHub Actions UI
-          echo "### 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend URL:** $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- **API URL:** $API_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- **S3 Bucket:** \`$BUCKET_NAME\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **CloudFront ID:** \`$DISTRIBUTION_ID\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Deployment Successful!" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Frontend URL:** $WEBSITE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **API URL:** $API_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **S3 Bucket:** $BUCKET_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **CloudFront ID:** $DISTRIBUTION_ID" >> "$GITHUB_STEP_SUMMARY"
